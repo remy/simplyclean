@@ -14,8 +14,8 @@
     "capabilities": [
         "configurable"
     ],
-    "companyName": "Edwin and Philipp",
-    "longName": "Simply Clean",
+    "companyName": "Remy sharp",
+    "longName": "Simple Mod",
     "projectType": "native",
     "resources": {
         "media": [
@@ -62,16 +62,16 @@
             },
             {
                 "characterRegex": "[0-9, :]",
-                "file": "fonts/HelveticaNeue_Lt.ttf",
-                "name": "FONT_HELVETICA_NEUE_50",
+                "file": "fonts/Audiowide-Regular.ttf",
+                "name": "FONT_HELVETICA_NEUE_38",
                 "type": "font"
             }
         ]
     },
-    "shortName": "Simply Clean",
-    "uuid": "67333301-a24a-45c2-8db6-cc87980696fd",
+    "shortName": "SimpleMod",
     "versionCode": 1,
-    "versionLabel": "1.1",
+    "uuid": "d0b8c0b5-b2c8-461d-83d9-63937d75c56a",
+    "versionLabel": "1.0",
     "watchapp": {
         "watchface": true
     }

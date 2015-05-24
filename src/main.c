@@ -15,6 +15,7 @@ void tick_handler(struct tm *t, TimeUnits units_changed);
 void bt_handler(bool connected);
 bool refresh_theme(bool connected);
 void refresh_battbar();
+static bool mConnected = false;
 #define WHITE_THEME 1
 #define DARK_THEME 0
 
@@ -43,19 +44,19 @@ void stopped(Animation *anim, bool finished, void *context)
 		currentlyGlancing = 0;
 	}
 }
- 
+
 void animate_layer(Layer *layer, GRect *start, GRect *finish, int duration, int delay)
 {
     PropertyAnimation *anim = property_animation_create_layer_frame(layer, start, finish);
-     
+
     animation_set_duration((Animation*) anim, duration);
     animation_set_delay((Animation*) anim, delay);
-     
+
     AnimationHandlers handlers = {
         .stopped = (AnimationStoppedHandler) stopped
     };
     animation_set_handlers((Animation*) anim, handlers, NULL);
-     
+
     animation_schedule((Animation*) anim);
 }
 
@@ -103,23 +104,25 @@ void glance_this(const char *glancetext, bool vibrate, int vibrateNum, int anima
 void reload_settings(){
 	//Update language
 	text_layer_set_text(tis_layer, lang_itis[settings.language]);
-	
+
+	layer_set_hidden(text_layer_get_layer(tis_layer), true); // rs hack
+
 	//Hide layers accordingly
 	layer_set_hidden(text_layer_get_layer(date_layer), !settings.showdate);
 	layer_set_hidden(text_layer_get_layer(battery_layer), !settings.showbattext);
-	
+
 	//Refresh tick_handler to update date text with proper language
 	struct tm *t;
-  	time_t temp;        
-  	temp = time(NULL);        
+  	time_t temp;
+  	temp = time(NULL);
   	t = localtime(&temp);
-	
+
 	tick_handler(t, MINUTE_UNIT);
-	
+
 	//Refresh bluetooth themes
 	bool ignore_me = bluetooth_connection_service_peek();
 	refresh_theme(ignore_me);
-	
+
 	refresh_battbar();
 }
 
@@ -177,7 +180,7 @@ void process_tuple(Tuple *t)
   }
 }
 
-static void in_received_handler(DictionaryIterator *iter, void *context) 
+static void in_received_handler(DictionaryIterator *iter, void *context)
 {
 	(void) context;
 
@@ -201,34 +204,21 @@ void format_date_buffer(struct tm *t){
 		if(settings.showdestext){
 			switch(settings.language){
 				case 0:
-					strftime(date_buffer, sizeof(date_buffer), "on %d %b. '%y", t);
+					strftime(date_buffer, sizeof(date_buffer), "on %d %b", t);
 					break;
 				case 1:
-					strftime(date_buffer, sizeof(date_buffer), "am %d %b. '%y", t);
+					strftime(date_buffer, sizeof(date_buffer), "am %d %b", t);
 					break;
 				case 2:
-					strftime(date_buffer, sizeof(date_buffer), "en %d %b. '%y", t);
+					strftime(date_buffer, sizeof(date_buffer), "en %d %b", t);
 					break;
 				case 3:
-					strftime(date_buffer, sizeof(date_buffer), "op %d %b. '%y", t);
+					strftime(date_buffer, sizeof(date_buffer), "op %d %b", t);
 					break;
 			}
 		}
 		else{
-			switch(settings.language){
-				case 0:
-					strftime(date_buffer, sizeof(date_buffer), "%d %b. '%y", t);
-					break;
-				case 1:
-					strftime(date_buffer, sizeof(date_buffer), "%d %b. '%y", t);
-					break;
-				case 2:
-					strftime(date_buffer, sizeof(date_buffer), "%d %b. '%y", t);
-					break;
-				case 3:
-					strftime(date_buffer, sizeof(date_buffer), "%d %b. '%y", t);
-					break;
-			}
+			strftime(date_buffer, sizeof(date_buffer), "%d %b", t);
 		}
 	}
 	else if(settings.dateformat == 1){
@@ -250,26 +240,22 @@ void tick_handler(struct tm *t, TimeUnits units_changed){
 		strftime(timeBuffer,sizeof(timeBuffer),"%I:%M", t);
 	}
 	text_layer_set_text(time_layer, timeBuffer);
-	
+
 	format_date_buffer(t);
-	
+
 	text_layer_set_text(date_layer, date_buffer);
 }
 
 void handle_battery(BatteryChargeState charge_state) {
   static char battery_text[] = "100%";
-  if (charge_state.is_charging) {
-	  snprintf(battery_text, sizeof(battery_text), "%d%%", charge_state.charge_percent);
-    } else {
-        snprintf(battery_text, sizeof(battery_text), "%d%%", charge_state.charge_percent);
-      }
+  snprintf(battery_text, sizeof(battery_text), "%d%%", charge_state.charge_percent);
 	text_layer_set_text(battery_layer, battery_text);
 	DrawBattBar(); /* Initial display of the bar */
 }
 
 void refresh_battbar(){
 	Layer *window_layer = window_get_root_layer(window);
-	
+
 	BBOptions options;
 	options.position = BATTBAR_POSITION_BOTTOM;
 	options.direction = BATTBAR_DIRECTION_DOWN;
@@ -307,20 +293,21 @@ bool refresh_theme(bool connected){
 
 void bt_handler(bool connected){
 	if(booted == 1){
-		if(connected){
+		if(connected && !mConnected){
 			if(settings.btrealert){
 				snprintf(glance_buffer, sizeof(glance_buffer), "%s", lang_con[settings.language]);
 				glance_this(glance_buffer, 1, 1, 5000, 0);
 			}
 		}
-		else{
+		else if (!connected && mConnected) {
 			if(settings.btdisalert){
 				snprintf(glance_buffer, sizeof(glance_buffer), "%s", lang_dis[settings.language]);
-				glance_this(glance_buffer, 1, 2, 5000, 0);
+				glance_this(glance_buffer, 1, 2, 15000, 0);
 			}
 		}
+		mConnected = connected;
 		bool themeenabled = refresh_theme(connected);
-		
+
 		refresh_battbar();
 	}
 	else{
@@ -337,7 +324,7 @@ void window_load(Window *w){
 	tis_layer = text_layer_init(GRect(15, 20, 144, 168), GColorClear, GTextAlignmentLeft, 2);
 	update_at_a_glance = text_layer_init(GRect(0, 300, 144, 168), GColorWhite, GTextAlignmentCenter, 3);
 	theme = inverter_layer_create(GRect(0, 0, 144, 168));
-	
+
 	text_layer_set_text(tis_layer, "It is");
 	layer_add_child(window_layer, text_layer_get_layer(time_layer));
 	layer_add_child(window_layer, text_layer_get_layer(date_layer));
@@ -346,19 +333,20 @@ void window_load(Window *w){
 	layer_add_child(window_layer, text_layer_get_layer(update_at_a_glance));
 	refresh_battbar(); //If you don't call it here it crashes, lol
 	layer_add_child(window_layer, inverter_layer_get_layer(theme));
-	
+
 	BatteryChargeState charge = battery_state_service_peek();
 	handle_battery(charge);
-	
+
 	struct tm *t;
-  	time_t temp;        
-  	temp = time(NULL);        
+  	time_t temp;
+  	temp = time(NULL);
   	t = localtime(&temp);
-	
+
 	tick_handler(t, MINUTE_UNIT);
 	reload_settings();
-	
-	bt_handler(bluetooth_connection_service_peek());
+
+	mConnected = bluetooth_connection_service_peek();
+	bt_handler(mConnected);
 }
 
 void window_unload(Window *w){
@@ -369,26 +357,26 @@ void window_unload(Window *w){
 	text_layer_destroy(update_at_a_glance);
 	inverter_layer_destroy(theme);
 }
-	
+
 void init(){
 	window = window_create();
 	window_set_window_handlers(window, (WindowHandlers){
 		.load = window_load,
 		.unload = window_unload,
 	});
-	
-	h_n = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HELVETICA_NEUE_50));
+
+	h_n = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HELVETICA_NEUE_38));
 	h_n_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HELVETICA_NEUE_18));
-	
+
 	battery_state_service_subscribe(&handle_battery);
 	app_message_register_inbox_received(in_received_handler);
 	app_message_open(1028, 512);
 	bluetooth_connection_service_subscribe(&bt_handler);
 	tick_timer_service_subscribe(MINUTE_UNIT, &tick_handler);
-	
+
 	persistvalue = persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
 	APP_LOG(APP_LOG_LEVEL_INFO, "Simply Clean initialied. %d bytes loaded.", persistvalue);
-	
+
 	window_stack_push(window, true);
 }
 

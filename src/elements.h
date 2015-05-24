@@ -33,12 +33,12 @@ persist settings = {
 	.dateformat = 0,
 	.btdisalert = 1,
 	.btrealert = 1,
-	.showdestext = 1,
+	.showdestext = 0,
 	.language = 0,
-	.btdistheme = 0,
+	.btdistheme = 1,
 	.btcontheme = 0,
 	.showbattext = 0,
-	.showdate = 0,
+	.showdate = 1,
 };
 
 char *lang_itis[] = {
